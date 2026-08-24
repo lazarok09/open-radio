@@ -1,0 +1,5 @@
+import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
+import { viewerId } from "@/lib/identity";
+import { completeLogin, oauthCookieName, readPkce } from "@/lib/spotify-oauth";
+export async function GET(request: Request) { const url = new URL(request.url); try { const userId = await viewerId(); const code = url.searchParams.get("code"); const state = url.searchParams.get("state"); const oauthError = url.searchParams.get("error"); if (oauthError) throw new Error("Spotify authorization was declined"); if (!userId || !code || !state) throw new Error("invalid Spotify callback"); const verifier = readPkce((await cookies()).get(oauthCookieName())?.value, state); await completeLogin(userId, code, verifier); const response = NextResponse.redirect(new URL("/?spotify=connected", request.url)); response.cookies.delete(oauthCookieName()); return response; } catch (error) { const response = NextResponse.redirect(new URL(`/?spotify_error=${encodeURIComponent(error instanceof Error ? error.message : "Spotify connection failed")}`, request.url)); response.cookies.delete(oauthCookieName()); return response; } }
